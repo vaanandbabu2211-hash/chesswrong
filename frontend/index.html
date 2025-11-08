@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChessWrong - Mistake Analyzer</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9ff;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .upload-area:hover {
+            background: #e8ebff;
+            border-color: #764ba2;
+        }
+        
+        .upload-icon {
+            font-size: 3em;
+            margin-bottom: 15px;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        input[type="text"] {
+            width: 100%;
+            padding: 15px;
+            margin: 20px 0;
+            border: 2px solid #ddd;
+            border-radius: 10px;
+            font-size: 1em;
+        }
+        
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1em;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: transform 0.2s;
+            width: 100%;
+            margin-top: 20px;
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .results {
+            margin-top: 30px;
+            padding: 30px;
+            background: #f8f9ff;
+            border-radius: 15px;
+            display: none;
+        }
+        
+        .results.show {
+            display: block;
+        }
+        
+        .stat-card {
+            background: white;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .stat-card h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+        }
+        
+        .mistake-item {
+            padding: 15px;
+            margin: 10px 0;
+            background: white;
+            border-left: 4px solid #764ba2;
+            border-radius: 5px;
+        }
+        
+        .recommendation {
+            padding: 15px;
+            margin: 10px 0;
+            background: #e8f5e9;
+            border-left: 4px solid #4caf50;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>♟️ ChessWrong</h1>
+        <p class="subtitle">Discover your chess mistakes and improve your game</p>
+        
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <div class="upload-icon">📤</div>
+            <h3>Upload Your Chess Games</h3>
+            <p>Drag & drop or click to select PGN file</p>
+            <input type="file" id="fileInput" accept=".pgn,.txt">
+        </div>
+        
+        <input type="text" id="playerName" placeholder="Enter your Chess.com username">
+        
+        <button id="analyzeBtn" onclick="analyzeGames()">
+            🔍 Analyze My Games
+        </button>
+        
+        <div id="results" class="results">
+            <h2>📊 Your Analysis Results</h2>
+            <div id="resultsContent"></div>
+        </div>
+    </div>
+    
+    <script>
+        let uploadedFile = null;
+        
+        document.getElementById('fileInput').addEventListener('change', (e) => {
+            uploadedFile = e.target.files[0];
+            if (uploadedFile) {
+                document.querySelector('.upload-area h3').textContent = '✅ File uploaded: ' + uploadedFile.name;
+            }
+        });
+        
+        async function analyzeGames() {
+            const playerName = document.getElementById('playerName').value;
+            const button = document.getElementById('analyzeBtn');
+            const results = document.getElementById('results');
+            const resultsContent = document.getElementById('resultsContent');
+            
+            if (!uploadedFile) {
+                alert('Please upload a PGN file first!');
+                return;
+            }
+            
+            if (!playerName) {
+                alert('Please enter your username!');
+                return;
+            }
+            
+            button.disabled = true;
+            button.textContent = '⏳ Analyzing...';
+            
+            try {
+                const fileContent = await uploadedFile.text();
+                
+                const response = await fetch('http://localhost:5000/api/analyze', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        pgn: fileContent,
+                        player_name: playerName
+                    })
+                });
+                
+                const data = await response.json();
+                
+                // Display results
+                resultsContent.innerHTML = `
+                    <div class="stat-card">
+                        <h3>📈 Summary</h3>
+                        <p><strong>Games Analyzed:</strong> ${data.summary.total_games}</p>
+                        <p><strong>Total Blunders:</strong> ${data.summary.total_blunders}</p>
+                        <p><strong>Blunders per Game:</strong> ${data.summary.blunders_per_game.toFixed(1)}</p>
+                    </div>
+                    
+                    <div class="stat-card">
+                        <h3>❌ Top Mistakes</h3>
+                        ${data.top_mistakes.map(m => `
+                            <div class="mistake-item">
+                                <strong>${m.type}:</strong> ${m.count} times
+                                ${m.most_common ? `<br><small>Most common: ${m.most_common}</small>` : ''}
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div class="stat-card">
+                        <h3>💡 Recommendations</h3>
+                        ${data.recommendations.map(r => `
+                            <div class="recommendation">${r}</div>
+                        `).join('')}
+                    </div>
+                `;
+                
+                results.classList.add('show');
+                
+            } catch (error) {
+                alert('Error analyzing games. Make sure the backend is running!');
+                console.error(error);
+            } finally {
+                button.disabled = false;
+                button.textContent = '🔍 Analyze My Games';
+            }
+        }
+    </script>
+</body>
+</html>
