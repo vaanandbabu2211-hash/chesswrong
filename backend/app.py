@@ -1,67 +1,82 @@
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from analyzer import ChessMistakeAnalyzer
-import os
+import json
 
 app = Flask(__name__)
-CORS(app)  # Allow frontend to talk to backend
+CORS(app)
 
-# Initialize analyzer
-# For now, we'll simulate Stockfish (since installing it is complex)
-analyzer = ChessMistakeAnalyzer(stockfish_path="stockfish")
+print("🚀 ChessWrong API v2.0 Starting...")
+print("📍 Server running at: http://localhost:5000")
+print("✅ JSON file support (Chess.com format)")
+print("✅ Opening performance analysis")
+print("✅ Rating-based performance tracking")
+print("✅ Time pressure detection")
+print("✅ Personalized recommendations")
+print()
 
-@app.route('/api/analyze', methods=['POST'])
-def analyze_games():
-    """
-    API endpoint to analyze chess games.
-    Expects PGN data and player name.
-    """
+analyzer = ChessMistakeAnalyzer()
+
+@app.route('/')
+def home():
+    return jsonify({
+        "name": "ChessWrong API",
+        "version": "2.0",
+        "status": "running",
+        "endpoints": {
+            "/analyze": "POST - Analyze chess games from JSON file",
+            "/health": "GET - Check API health"
+        }
+    })
+
+@app.route('/health')
+def health():
+    return jsonify({"status": "healthy", "version": "2.0"})
+
+@app.route('/analyze', methods=['POST'])
+def analyze():
     try:
         data = request.get_json()
-        pgn_data = data.get('pgn')
-        player_name = data.get('player_name')
         
-        if not pgn_data or not player_name:
-            return jsonify({'error': 'Missing PGN data or player name'}), 400
+        if not data:
+            return jsonify({"error": "No data provided"}), 400
         
-        # For MVP, return mock data
-        # TODO: Replace with actual analysis once Stockfish is installed
-        mock_results = {
-            'summary': {
-                'total_games': 10,
-                'total_blunders': 23,
-                'total_hung_pieces': 8,
-                'blunders_per_game': 2.3
-            },
-            'top_mistakes': [
-                {
-                    'type': 'Blunders',
-                    'count': 23,
-                    'percentage': 230
-                },
-                {
-                    'type': 'Hanging Pieces',
-                    'count': 8,
-                    'most_common': 'knight'
-                }
-            ],
-            'recommendations': [
-                'Practice slower, more careful play. Double-check moves before playing.',
-                'You frequently hang knights. Before moving, ask: Is this piece defended?'
-            ]
-        }
+        # Get games data and username
+        games_data = data.get('games')
+        username = data.get('username', '')
         
-        return jsonify(mock_results), 200
+        if not games_data:
+            return jsonify({"error": "No games data provided"}), 400
         
+        if not username:
+            return jsonify({"error": "Username is required"}), 400
+        
+        # Parse JSON if it's a string
+        if isinstance(games_data, str):
+            try:
+                games_data = json.loads(games_data)
+            except json.JSONDecodeError:
+                return jsonify({"error": "Invalid JSON format"}), 400
+        
+        # Load games
+        game_count = analyzer.load_games_from_json(games_data, username)
+        print(f"📊 Analyzing {game_count} games for {username}...")
+        
+        # Analyze
+        results = analyzer.analyze_all_games()
+        
+        print(f"✅ Analysis complete!")
+        print(f"   Win Rate: {results.get('win_rate', 0)}%")
+        print(f"   Total Games: {results.get('total_games', 0)}")
+        print()
+        
+        return jsonify(results)
+        
+    except ValueError as e:
+        return jsonify({"error": str(e)}), 400
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-@app.route('/api/health', methods=['GET'])
-def health_check():
-    """Simple health check endpoint."""
-    return jsonify({'status': 'healthy', 'message': 'ChessWrong API is running!'}), 200
+        print(f"❌ Error: {str(e)}")
+        return jsonify({"error": f"Analysis failed: {str(e)}"}), 500
 
 if __name__ == '__main__':
-    print("🚀 Starting ChessWrong API...")
-    print("📍 Server running at: http://localhost:5000")
     app.run(debug=True, port=5000)
