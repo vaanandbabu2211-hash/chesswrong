@@ -191,8 +191,3 @@ Having issues?
 
 Because we all make mistakes in chess. The key is learning from them and not repeating them. ChessWrong helps you identify YOUR specific patterns so you can improve faster.
 
----
-
-**Made with ♟️ by chess players, for chess players**
-
-*Stop wondering why you're stuck at your rating. Start understanding your game.*
